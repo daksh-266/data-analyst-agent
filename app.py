@@ -1113,7 +1113,12 @@ async def diagnose(full: bool = Query(False, description="If true, run extended 
     return report
 
 
+import os
+import uvicorn
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    port = int(os.getenv("PORT", "8000"))
+    print(f"Starting server on port: {port}")  # This will show in Railway logs
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
 
