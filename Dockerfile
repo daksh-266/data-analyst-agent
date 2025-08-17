@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     python3-dev \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
@@ -31,5 +32,5 @@ RUN chmod +x entrypoint.sh
 # Expose the port the app runs on
 EXPOSE 8000
 
-# Command to run the application
+# Start the app
 CMD ["./entrypoint.sh"]
