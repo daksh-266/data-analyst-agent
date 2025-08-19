@@ -1,3 +1,4 @@
+
 import os
 import networkx as nx
 import re
@@ -66,9 +67,33 @@ MODEL_HIERARCHY = [
     "gemini-2.0-flash-lite"
 ]
 
+
 MAX_RETRIES_PER_KEY = 2
 TIMEOUT = 30
-QUOTA_KEYWORDS = ["quota", "exceeded", "rate limit", "403", "too many requests"]
+# QUOTA_KEYWORDS = ["quota", "exceeded", "rate limit", "403", "too many requests"]
+QUOTA_KEYWORDS = [          "quota", 
+                            "exceeded",
+                            "rate limit",
+                            "403", 
+                            "too many requests",
+                            "quota exceeded", 
+                            "rate limit", 
+                            "too many requests",
+                            "resource exhausted",
+                            "deadline exceeded", 
+                            "unavailable",
+                            "internal error",
+                            "service unavailable",
+                            "temporarily overloaded",
+                            "connection reset",
+                            "timeout",
+                            "consumer_suspended", 
+                            "permission denied", 
+                            "invalid api key",
+                            "unauthorized",
+                            "access not configured",
+                            "key not valid",
+                            "not authorized"]
 
 if not GEMINI_KEYS:
     raise RuntimeError("No Gemini API keys found. Please set them in your environment.")
@@ -86,8 +111,9 @@ class LLMWithFallback:
     def _get_llm_instance(self):
         last_error = None
         for model in self.models:
-            for key in self.keys:
+            for key_index, key in enumerate(self.keys):
                 try:
+                    print(f"✅ Using gemini_api_{key_index + 1}: ....{key[-5:]} for model {model}")
                     llm_instance = ChatGoogleGenerativeAI(
                         model=model,
                         temperature=self.temperature,
@@ -98,6 +124,7 @@ class LLMWithFallback:
                 except Exception as e:
                     last_error = e
                     msg = str(e).lower()
+                    print(f"⚠️ Error with key {key[:8]} on {model}: {e}. Skipping...")
                     if any(qk in msg for qk in QUOTA_KEYWORDS):
                         self.slow_keys_log[key].append(model)
                     self.failing_keys_log[key] += 1
@@ -113,6 +140,50 @@ class LLMWithFallback:
     def invoke(self, prompt):
         llm_instance = self._get_llm_instance()
         return llm_instance.invoke(prompt)
+
+
+
+
+
+# class LLMWithFallback:
+#     def __init__(self, keys=None, models=None, temperature=0):
+#         self.keys = keys or GEMINI_KEYS
+#         self.models = models or MODEL_HIERARCHY
+#         self.temperature = temperature
+#         self.slow_keys_log = defaultdict(list)
+#         self.failing_keys_log = defaultdict(int)
+#         self.current_llm = None  # placeholder for actual ChatGoogleGenerativeAI instance
+
+#     def _get_llm_instance(self):
+#         last_error = None
+#         for model in self.models:
+#             for key in self.keys:
+#                 try:
+#                     llm_instance = ChatGoogleGenerativeAI(
+#                         model=model,
+#                         temperature=self.temperature,
+#                         google_api_key=key
+#                     )
+#                     self.current_llm = llm_instance
+#                     return llm_instance
+#                 except Exception as e:
+#                     last_error = e
+#                     msg = str(e).lower()
+#                     if any(qk in msg for qk in QUOTA_KEYWORDS):
+#                         self.slow_keys_log[key].append(model)
+#                     self.failing_keys_log[key] += 1
+#                     time.sleep(0.5)
+#         raise RuntimeError(f"All models/keys failed. Last error: {last_error}")
+
+#     # Required by LangChain agent
+#     def bind_tools(self, tools):
+#         llm_instance = self._get_llm_instance()
+#         return llm_instance.bind_tools(tools)
+
+#     # Keep .invoke interface
+#     def invoke(self, prompt):
+#         llm_instance = self._get_llm_instance()
+#         return llm_instance.invoke(prompt)
 
 
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", 240))
@@ -745,6 +816,7 @@ def run_agent_safely_unified(llm_input: str, pickle_path: str = None) -> Dict:
 
         results_dict = exec_result.get("result", {})
         return {q: results_dict.get(q, "Answer not found") for q in questions}
+        # return results_dict
 
     except Exception as e:
         logger.exception("run_agent_safely_unified failed")
@@ -1073,7 +1145,7 @@ async def diagnose(full: bool = Query(False, description="If true, run extended 
 
     # prepare tasks
     tasks = {
-        "env": run_in_thread(_env_check, ["GOOGLE_API_KEY", "GOOGLE_MODEL", "LLM_TIMEOUT_SECONDS"], timeout=3),
+        "env": run_in_thread(_env_check, ["gemini_api_1","gemini_api_2","gemini_api_3","gemini_api_4","gemini_api_5","gemini_api_6","gemini_api_7","gemini_api_8","gemini_api_9","gemini_api_10","GOOGLE_MODEL", "LLM_TIMEOUT_SECONDS"], timeout=30),
         "system": run_in_thread(_system_info, timeout=30),
         "tmp_write": run_in_thread(_temp_write_test, timeout=30),
         "cwd_write": run_in_thread(_app_write_test, timeout=30),
@@ -1111,7 +1183,6 @@ async def diagnose(full: bool = Query(False, description="If true, run extended 
 
     report["elapsed_seconds"] = (datetime.utcnow() - started).total_seconds()
     return report
-
 
 import os
 import uvicorn
